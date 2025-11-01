@@ -1,0 +1,19 @@
+# Composer dependencies
+/vendor/
+/composer.lock
+
+# PHPStorm / VSCode / Editors
+.idea/
+.vscode/
+
+# Env or secret config files
+.env
+*.key
+
+# Logs & temp files
+*.log
+*.tmp
+
+# OS junk
+.DS_Store
+Thumbs.db

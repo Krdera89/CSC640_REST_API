@@ -1,0 +1,11 @@
+{
+  "name": "kevin/student-api",
+  "description": "Student Management API (mock version)",
+  "type": "project",
+  "require": {},
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}
