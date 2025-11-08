@@ -2,7 +2,7 @@
 namespace App;
 
 class Auth {
-    // put this in an env var later if you want
+    // put this in an env var later
     private const TOKEN = 'super-secret-123';
 
     public static function requireBearer(): void {

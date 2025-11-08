@@ -88,6 +88,7 @@ if ($method === 'GET' && preg_match('#^/courses/(\d+)$#', $path, $m)) {
 
 // POST /courses
 if ($method === 'POST' && $path === '/courses') {
+    Auth::requireBearer();
     $in = readJsonBody();
     $code  = trim($in['code']  ?? '');
     $title = trim($in['title'] ?? '');
