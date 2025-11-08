@@ -2,12 +2,12 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 use App\Response;
-use App\Mock;
+use App\Database;
 use App\Auth;
 
 // Handle preflight for CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    Response::json(['ok' => true]); // 200 + CORS headers
+    Response::json(['ok' => true]);
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -23,20 +23,21 @@ function readJsonBody(): array {
 
 // Health
 if ($method === 'GET' && $path === '/status') {
-    Response::json(['ok' => true, 'php' => PHP_VERSION]);
+    Response::json(['ok' => true, 'php' => PHP_VERSION, 'database' => 'MySQL']);
 }
 
 /* -------------------- STUDENTS -------------------- */
 
 // GET /students
 if ($method === 'GET' && $path === '/students') {
-    Response::json(array_values(Mock::$students));
+    Response::json(Database::getAllStudents());
 }
 
 // GET /students/{id}
 if ($method === 'GET' && preg_match('#^/students/(\d+)$#', $path, $m)) {
     $id = (int)$m[1];
-    if (isset(Mock::$students[$id])) Response::json(Mock::$students[$id]);
+    $student = Database::getStudentById($id);
+    if ($student) Response::json($student);
     Response::json(['error' => 'Student not found'], 404);
 }
 
@@ -48,27 +49,34 @@ if ($method === 'POST' && $path === '/students') {
     if ($name === '' || $email === '') {
         Response::json(['error' => 'name and email are required'], 422);
     }
-    $id = Mock::nextId(Mock::$students);
-    Mock::$students[$id] = ['id' => $id, 'name' => $name, 'email' => $email];
-    Response::json(Mock::$students[$id], 201);
+    try {
+        $student = Database::createStudent($name, $email);
+        Response::json($student, 201);
+    } catch (Exception $e) {
+        Response::json(['error' => 'Could not create student: ' . $e->getMessage()], 500);
+    }
 }
 
 // PUT /students/{id}
 if ($method === 'PUT' && preg_match('#^/students/(\d+)$#', $path, $m)) {
     $id = (int)$m[1];
-    if (!isset(Mock::$students[$id])) Response::json(['error' => 'Student not found'], 404);
+    $student = Database::getStudentById($id);
+    if (!$student) Response::json(['error' => 'Student not found'], 404);
+    
     $in = readJsonBody();
-    Mock::$students[$id]['name']  = $in['name']  ?? Mock::$students[$id]['name'];
-    Mock::$students[$id]['email'] = $in['email'] ?? Mock::$students[$id]['email'];
-    Response::json(Mock::$students[$id]);
+    $name = trim($in['name'] ?? $student['name']);
+    $email = trim($in['email'] ?? $student['email']);
+    
+    Database::updateStudent($id, $name, $email);
+    Response::json(['id' => $id, 'name' => $name, 'email' => $email]);
 }
 
 // DELETE /students/{id}  (SECURE)
 if ($method === 'DELETE' && preg_match('#^/students/(\d+)$#', $path, $m)) {
     Auth::requireBearer();
     $id = (int)$m[1];
-    if (!isset(Mock::$students[$id])) Response::json(['error' => 'Student not found'], 404);
-    unset(Mock::$students[$id]);
+    if (!Database::getStudentById($id)) Response::json(['error' => 'Student not found'], 404);
+    Database::deleteStudent($id);
     Response::json(['deleted' => true]);
 }
 
@@ -76,17 +84,18 @@ if ($method === 'DELETE' && preg_match('#^/students/(\d+)$#', $path, $m)) {
 
 // GET /courses
 if ($method === 'GET' && $path === '/courses') {
-    Response::json(array_values(Mock::$courses));
+    Response::json(Database::getAllCourses());
 }
 
 // GET /courses/{id}
 if ($method === 'GET' && preg_match('#^/courses/(\d+)$#', $path, $m)) {
     $id = (int)$m[1];
-    if (isset(Mock::$courses[$id])) Response::json(Mock::$courses[$id]);
+    $course = Database::getCourseById($id);
+    if ($course) Response::json($course);
     Response::json(['error' => 'Course not found'], 404);
 }
 
-// POST /courses
+// POST /courses (SECURE)
 if ($method === 'POST' && $path === '/courses') {
     Auth::requireBearer();
     $in = readJsonBody();
@@ -95,27 +104,34 @@ if ($method === 'POST' && $path === '/courses') {
     if ($code === '' || $title === '') {
         Response::json(['error' => 'code and title are required'], 422);
     }
-    $id = Mock::nextId(Mock::$courses);
-    Mock::$courses[$id] = ['id' => $id, 'code' => $code, 'title' => $title];
-    Response::json(Mock::$courses[$id], 201);
+    try {
+        $course = Database::createCourse($code, $title);
+        Response::json($course, 201);
+    } catch (Exception $e) {
+        Response::json(['error' => 'Could not create course: ' . $e->getMessage()], 500);
+    }
 }
 
 // PUT /courses/{id}
 if ($method === 'PUT' && preg_match('#^/courses/(\d+)$#', $path, $m)) {
     $id = (int)$m[1];
-    if (!isset(Mock::$courses[$id])) Response::json(['error' => 'Course not found'], 404);
+    $course = Database::getCourseById($id);
+    if (!$course) Response::json(['error' => 'Course not found'], 404);
+    
     $in = readJsonBody();
-    Mock::$courses[$id]['code']  = $in['code']  ?? Mock::$courses[$id]['code'];
-    Mock::$courses[$id]['title'] = $in['title'] ?? Mock::$courses[$id]['title'];
-    Response::json(Mock::$courses[$id]);
+    $code = trim($in['code'] ?? $course['code']);
+    $title = trim($in['title'] ?? $course['title']);
+    
+    Database::updateCourse($id, $code, $title);
+    Response::json(['id' => $id, 'code' => $code, 'title' => $title]);
 }
 
 // DELETE /courses/{id}  (SECURE)
 if ($method === 'DELETE' && preg_match('#^/courses/(\d+)$#', $path, $m)) {
     Auth::requireBearer();
     $id = (int)$m[1];
-    if (!isset(Mock::$courses[$id])) Response::json(['error' => 'Course not found'], 404);
-    unset(Mock::$courses[$id]);
+    if (!Database::getCourseById($id)) Response::json(['error' => 'Course not found'], 404);
+    Database::deleteCourse($id);
     Response::json(['deleted' => true]);
 }
 
@@ -123,7 +139,7 @@ if ($method === 'DELETE' && preg_match('#^/courses/(\d+)$#', $path, $m)) {
 
 // GET /enrollments
 if ($method === 'GET' && $path === '/enrollments') {
-    Response::json(array_values(Mock::$enrollments));
+    Response::json(Database::getAllEnrollments());
 }
 
 // POST /enrollments  (SECURE)
@@ -132,20 +148,24 @@ if ($method === 'POST' && $path === '/enrollments') {
     $in = readJsonBody();
     $sid = (int)($in['student_id'] ?? 0);
     $cid = (int)($in['course_id'] ?? 0);
-    if (!$sid || !$cid || !isset(Mock::$students[$sid]) || !isset(Mock::$courses[$cid])) {
+    
+    if (!$sid || !$cid) {
         Response::json(['error' => 'valid student_id and course_id are required'], 422);
     }
-    $id = Mock::nextId(Mock::$enrollments);
-    Mock::$enrollments[$id] = ['id' => $id, 'student_id' => $sid, 'course_id' => $cid];
-    Response::json(Mock::$enrollments[$id], 201);
+    
+    $enrollment = Database::createEnrollment($sid, $cid);
+    if (!$enrollment) {
+        Response::json(['error' => 'Student or course not found'], 422);
+    }
+    Response::json($enrollment, 201);
 }
 
 // DELETE /enrollments/{id}  (SECURE)
 if ($method === 'DELETE' && preg_match('#^/enrollments/(\d+)$#', $path, $m)) {
     Auth::requireBearer();
     $id = (int)$m[1];
-    if (!isset(Mock::$enrollments[$id])) Response::json(['error' => 'Enrollment not found'], 404);
-    unset(Mock::$enrollments[$id]);
+    if (!Database::enrollmentExists($id)) Response::json(['error' => 'Enrollment not found'], 404);
+    Database::deleteEnrollment($id);
     Response::json(['deleted' => true]);
 }
 
